@@ -18,12 +18,14 @@ jobs:
       - name: Checkout code from repository
         uses: actions/checkout@v4
       - name: Build Base
-        run: cargo build --release  
+        run: cargo build --release
+      - name: Transform filenames
+        run: mv target/release/holani-min holani-min-x86_64-linux
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: holani_min-x86_64-linux
-          path: target/release/holani-min
+          path: holani-min-x86_64-linux
           retention-days: 5
   build-windows:
     name: Build Windows
@@ -57,11 +59,13 @@ jobs:
           target: x86_64-apple-darwin
       - name: Build Base x86_64
         run: cargo build --release --target x86_64-apple-darwin
+      - name: Transform filenames
+        run: mv target/x86_64-apple-darwin/release/holani-min holani-min-x86_64-osx        
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: holani_min-x86_64-osx
-          path: target/x86_64-apple-darwin/release/holani-min
+          path: holani-min-x86_64-osx
           retention-days: 5 
   build-osx-aarch64:
     name: Build osx aarch64
@@ -76,11 +80,13 @@ jobs:
         uses: actions/checkout@v4
       - name: Build Base aarch64
         run: cargo build --release 
+      - name: Transform filenames
+        run: mv target/release/holani-min holani-min-aarch64-osx
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: holani_min-aarch64-osx
-          path: target/release/holani-min
+          path: holani-min-aarch64-osx
           retention-days: 5    
           
   release:
@@ -97,7 +103,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            holani_min-x86_64-linux/holani-min
+            holani_min-x86_64-linux/holani-min-x86_64-linux
             holani_min-x86_64-windows/holani-min.exe
-            holani_min-x86_64-osx/holani-min
-            holani_min-aarch64-osx/holani-min
+            holani_min-x86_64-osx/holani-min-x86_64-osx
+            holani_min-aarch64-osx/holani-min-aarch64-osx
