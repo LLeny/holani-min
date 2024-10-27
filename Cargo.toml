@@ -18,5 +18,4 @@ log = { version = "0.4", features = [
 ] }
 kanal = { git = "https://github.com/fereidani/kanal.git", rev = "125fb7876797f20c632b25660c2f41c2908f9007" }
 rodio = "0.19"
-governor = "0.7"
 clap = { version = "4.5", features = ["derive"] }

@@ -27,10 +27,6 @@ struct Args {
     #[arg(short, long, default_value = "ikjlqw12")]
     buttons: Option<String>,
 
-    /// Enable Comlynx
-    #[arg(short = 'x', long, default_value_t = false)]
-    comlynx: bool,
-
     /// Linear display filter
     #[arg(short, long, default_value_t = false)]
     linear: bool,
@@ -120,7 +116,6 @@ fn process_args() -> RunnerConfig {
 
     config.set_linear_filter(args.linear);
     config.set_mute(args.mute);
-    config.set_comlynx(args.comlynx);
 
     let btns = args.buttons.unwrap();
     if btns.len() != 8 {

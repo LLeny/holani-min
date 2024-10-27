@@ -1,5 +1,4 @@
-use std::{num::NonZeroU32, time::{Duration, Instant}};
-use governor::{clock::{QuantaClock, QuantaInstant}, middleware::NoOpMiddleware, state::{InMemoryState, NotKeyed}, Quota, RateLimiter};
+use std::time::{Duration, Instant};
 use holani::{cartridge::lnx_header::LNXRotation, Lynx};
 use log::trace;
 use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
@@ -7,15 +6,14 @@ use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
 use crate::runner_config::RunnerConfig;
 
 const CRYSTAL_FREQUENCY: u32 = 16_000_000;
-const TICK_LENGTH: Duration = Duration::from_nanos(1_000_000_000u64 / CRYSTAL_FREQUENCY as u64);
 const SAMPLE_RATE: u32 = 16_000;
-const UART_MIN_TICKS: u32 = 16;
 const SAMPLE_TICKS: u32 = CRYSTAL_FREQUENCY / SAMPLE_RATE;
-const SAMPLE_BUFFER_SIZE: u32 = SAMPLE_RATE / 16;
+const SAMPLE_BUFFER_SIZE: u32 = SAMPLE_RATE / 32;
+const TICK_GROUP: u32 = 16;
+const TICK_LENGTH: Duration = Duration::from_nanos((1_000_000_000f32 / CRYSTAL_FREQUENCY as f32 * TICK_GROUP as f32) as u64);
 
 pub(crate) struct RunnerThread {
     lynx: Lynx,
-    limiter: RateLimiter<NotKeyed, InMemoryState, QuantaClock, NoOpMiddleware<QuantaInstant>>,
     next_ticks_trigger: Instant,
     sound_tick: u32,
     sound_buffer: Vec<i16>,
@@ -32,7 +30,6 @@ impl RunnerThread {
         let (stream, stream_handle) = OutputStream::try_default().unwrap();
         Self {
             lynx: Lynx::new(),
-            limiter: RateLimiter::direct(Quota::per_second(NonZeroU32::new(CRYSTAL_FREQUENCY).unwrap())),
             next_ticks_trigger: Instant::now(),
             sound_tick: 0,
             sound_buffer: vec![],
@@ -106,31 +103,18 @@ impl RunnerThread {
     }
 
     pub(crate) fn run(&mut self) {
-        if self.config.comlynx() {
-            loop {
-                while Instant::now() < self.next_ticks_trigger {
-                }
-                self.next_ticks_trigger = Instant::now() + TICK_LENGTH * UART_MIN_TICKS;
-                if self.inputs() {
-                    return;
-                }
-                for _ in 0..UART_MIN_TICKS {
-                    self.lynx.tick();
-                    self.sound();
-                }
-                self.display();
+        loop {
+            while Instant::now() < self.next_ticks_trigger {
             }
-        } else {
-            loop {
-                while self.limiter.check().is_err() {
-                }
-                if self.inputs() {
-                    return;
-                }
+            self.next_ticks_trigger = Instant::now() + TICK_LENGTH;
+            if self.inputs() {
+                return;
+            }
+            for _ in 0..TICK_GROUP {
                 self.lynx.tick();
-                self.sound(); 
-                self.display();                
+                self.sound();
             }
+            self.display();
         }
     }
 }

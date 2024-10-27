@@ -10,7 +10,6 @@ pub(crate) struct RunnerConfig {
     button_mapping: HashMap<KeyCode, Joystick>,
     linear_filter: bool,
     mute: bool,
-    comlynx: bool,
 }
 
 impl RunnerConfig {
@@ -20,7 +19,6 @@ impl RunnerConfig {
             cartridge: None,
             linear_filter: false,
             mute: false,
-            comlynx: false,
             button_mapping: HashMap::new()
         }
     }
@@ -67,13 +65,5 @@ impl RunnerConfig {
     
     pub(crate) fn set_mute(&mut self, mute: bool) {
         self.mute = mute;
-    }
-    
-    pub(crate) fn comlynx(&self) -> bool {
-        self.comlynx
-    }
-    
-    pub(crate) fn set_comlynx(&mut self, comlynx: bool) {
-        self.comlynx = comlynx;
     }
 }
