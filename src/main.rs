@@ -9,6 +9,7 @@ use macroquad::prelude::*;
 
 pub(crate) mod runner;
 pub(crate) mod runner_config;
+pub(crate) mod runner_thread;
 pub(crate) mod keycodes;
 
 #[derive(Parser)]
@@ -22,6 +23,14 @@ struct Args {
     #[arg(short, long)]
     rom: Option<PathBuf>,
 
+    /// Buttons mapping <up><down><left><right><out><in><o1><o2>
+    #[arg(short, long, default_value = "ikjlqw12")]
+    buttons: Option<String>,
+
+    /// Enable Comlynx
+    #[arg(short = 'x', long, default_value_t = false)]
+    comlynx: bool,
+
     /// Linear display filter
     #[arg(short, long, default_value_t = false)]
     linear: bool,
@@ -29,10 +38,6 @@ struct Args {
     /// Mute sound
     #[arg(short, long, default_value_t = false)]
     mute: bool,
-
-    /// Buttons mapping <up><down><left><right><outside><inside><option_1><option_2)>, Default ikjlqw12
-    #[arg(short, long, default_value = "ikjlqw12")]
-    buttons: Option<String>,
 }
 
 
@@ -113,13 +118,9 @@ fn process_args() -> RunnerConfig {
     }
     config.set_cartridge(args.cartridge);
 
-    if args.linear {
-        config.set_linear_filter(true);
-    }
-
-    if args.mute {
-        config.set_mute(true);
-    }
+    config.set_linear_filter(args.linear);
+    config.set_mute(args.mute);
+    config.set_comlynx(args.comlynx);
 
     let btns = args.buttons.unwrap();
     if btns.len() != 8 {

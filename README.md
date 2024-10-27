@@ -24,9 +24,10 @@ Usage: holani-min [OPTIONS] --cartridge <CARTRIDGE>
 Options:
   -c, --cartridge <CARTRIDGE>  Cartright, can be .o or a .lnx file
   -r, --rom <ROM>              ROM override
+  -b, --buttons <BUTTONS>      Buttons mapping <up><down><left><right><out><in><o1><o2> [default: ikjlqw12]
+  -x, --comlynx                Enable Comlynx
   -l, --linear                 Linear display filter
   -m, --mute                   Mute sound
-  -b, --buttons <BUTTONS>      Buttons mapping <up><down><left><right><outside><inside><option_1><option_2)>, Default ikjlqw12 [default: ikjlqw12]
   -h, --help                   Print help
   -V, --version                Print version
 ```
