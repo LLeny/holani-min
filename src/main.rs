@@ -11,6 +11,7 @@ pub(crate) mod runner;
 pub(crate) mod runner_config;
 pub(crate) mod runner_thread;
 pub(crate) mod keycodes;
+pub(crate) mod sound_source;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
