@@ -3,13 +3,10 @@ use clap::Parser;
 use holani::{cartridge::lnx_header::LNXRotation, mikey::video::{LYNX_SCREEN_HEIGHT, LYNX_SCREEN_WIDTH}, suzy::registers::Joystick};
 use keycodes::translate_keycode;
 use miniquad::window::screen_size;
-use runner::Runner;
-use runner_config::RunnerConfig;
 use macroquad::prelude::*;
+use runner::{runner_config::RunnerConfig, Runner};
 
 pub(crate) mod runner;
-pub(crate) mod runner_config;
-pub(crate) mod runner_thread;
 pub(crate) mod keycodes;
 pub(crate) mod sound_source;
 
@@ -35,6 +32,10 @@ struct Args {
     /// Mute sound
     #[arg(short, long, default_value_t = false)]
     mute: bool,
+
+    /// Enable Comlynx
+    #[arg(short('x'), long, default_value_t = false)]
+    comlynx: bool,
 }
 
 
@@ -117,6 +118,7 @@ fn process_args() -> RunnerConfig {
 
     config.set_linear_filter(args.linear);
     config.set_mute(args.mute);
+    config.set_comlynx(args.comlynx);
 
     let btns = args.buttons.unwrap();
     if btns.len() != 8 {

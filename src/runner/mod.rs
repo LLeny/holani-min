@@ -1,16 +1,28 @@
 use std::thread::JoinHandle;
+use comlynx_runner_thread::ComlynxRunnerThread;
 use holani::cartridge::lnx_header::LNXRotation;
 use log::trace;
-use crate::{runner_config::RunnerConfig, runner_thread::RunnerThread, sound_source::SoundSource};
-use rodio::{OutputStream, OutputStreamHandle, Sink};
+use perframe_runner_thread::PerFrameRunnerThread;
+use runner_config::RunnerConfig;
+use thread_priority::*;
+
+pub(crate) mod runner_config;
+pub(crate) mod comlynx_runner_thread;
+pub(crate) mod perframe_runner_thread;
+
+pub const CRYSTAL_FREQUENCY: u32 = 16_000_000;
+pub const SAMPLE_RATE: u32 = 16_000;
+pub const SAMPLE_TICKS: u32 = CRYSTAL_FREQUENCY / SAMPLE_RATE;
+
+pub(crate) trait RunnerThread {
+    fn initialize(&mut self);
+    fn run(&mut self);
+}
 
 pub(crate) struct Runner {
     runner_thread: Option<JoinHandle<()>>,
     config: RunnerConfig,
     input_tx: Option<kanal::Sender<u8>>,
-    _stream: OutputStream,
-    stream_handle: OutputStreamHandle,
-    sink: Option<Sink>,
 }
 
 impl Drop for Runner {
@@ -26,14 +38,11 @@ impl Drop for Runner {
 
 impl Runner {
     pub fn new(config: RunnerConfig) -> Self {
-        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+
         Self {
             config,
             runner_thread: None,
             input_tx: None,
-            _stream,
-            stream_handle, 
-            sink: None,
         }
     }
 
@@ -41,16 +50,17 @@ impl Runner {
         let (input_tx, input_rx) = kanal::unbounded::<u8>();
         let (update_display_tx, update_display_rx) = kanal::unbounded::<Vec<u8>>();
         let (rotation_tx, rotation_rx) = kanal::unbounded::<LNXRotation>();
-        let (sample_req_tx, sample_req_rx) = kanal::unbounded::<()>();
-        let (sample_rec_tx, sample_rec_rx) = kanal::unbounded::<(i16, i16)>();
 
         let conf = self.config.clone();
 
         self.runner_thread = Some(
             std::thread::Builder::new()
             .name("Core".to_string())
-            .spawn(move || {
-                let mut thread = RunnerThread::new(conf, input_rx, update_display_tx, rotation_tx, sample_req_rx, sample_rec_tx);
+            .spawn_with_priority(ThreadPriority::Max, move |_| {
+                let mut thread: Box<dyn RunnerThread> = match conf.comlynx() {
+                    true => Box::new(ComlynxRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx)),
+                    false => Box::new(PerFrameRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx)),
+                };
                 trace!("Runner started.");
                 thread.initialize();
                 thread.run();
@@ -59,14 +69,7 @@ impl Runner {
         );
 
         let rotation = rotation_rx.recv().unwrap();
-
-        if !self.config.mute() {
-            let sound_source = SoundSource::new(sample_req_tx, sample_rec_rx);
-            let s = Sink::try_new(&self.stream_handle).unwrap();
-            s.append(sound_source);
-            self.sink = Some(s);
-        }
-        
+       
         (input_tx, update_display_rx, rotation)
     }
 }

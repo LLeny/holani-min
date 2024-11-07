@@ -1,10 +1,10 @@
 [package]
 name = "holani-min"
-version = "0.8.2"
+version = "0.8.3"
 edition = "2021"
 
 [dependencies]
-holani = { git = "https://github.com/LLeny/holani.git", tag = "0.8.2", features = [
+holani = { git = "https://github.com/LLeny/holani.git", tag = "0.8.3", features = [
   "comlynx_shared_memory"
 ] }
 macroquad = "0.4"
@@ -19,3 +19,4 @@ log = { version = "0.4", features = [
 kanal = { git = "https://github.com/fereidani/kanal.git", rev = "125fb7876797f20c632b25660c2f41c2908f9007" }
 rodio = "0.19"
 clap = { version = "4.5", features = ["derive"] }
+thread-priority = "1.1.0"

@@ -1,50 +1,46 @@
-use std::{collections::VecDeque, time::{Duration, Instant}};
+use std::time::{Duration, Instant};
 use holani::{cartridge::lnx_header::LNXRotation, Lynx};
 use log::trace;
+use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
 
-use crate::runner_config::RunnerConfig;
+use super::{RunnerConfig, RunnerThread, CRYSTAL_FREQUENCY, SAMPLE_RATE};
+const TICKS_PER_AUDIO_SAMPLE: u64 = CRYSTAL_FREQUENCY as u64 / SAMPLE_RATE as u64;
 
-const CRYSTAL_FREQUENCY: u32 = 16_000_000;
-const SAMPLE_RATE: u32 = 16_000;
-const SAMPLE_TICKS: u32 = CRYSTAL_FREQUENCY / SAMPLE_RATE;
-const TICK_GROUP: u32 = 8;
-const TICK_LENGTH: Duration = Duration::from_nanos((1_000_000_000f32 / CRYSTAL_FREQUENCY as f32 * TICK_GROUP as f32) as u64);
-
-pub(crate) struct RunnerThread {
+pub(crate) struct PerFrameRunnerThread {
     lynx: Lynx,
-    next_ticks_trigger: Instant,
-    sound_tick: u32,
-    sound_sample: VecDeque<(i16, i16)>,
-    sample_ticks: u32,
+    sound_tick: u64,
+    sound_sample: Vec<i16>,
     config: RunnerConfig,
     input_rx: kanal::Receiver<u8>,
     update_display_tx: kanal::Sender<Vec<u8>>,
     rotation_tx: kanal::Sender<LNXRotation>,
-    sample_req_rx: kanal::Receiver<()>, 
-    sample_rec_tx: kanal::Sender<(i16, i16)>,    
+    frame_time: Duration,
+    next_lcd_refresh: Instant,
+    last_refresh_rate: f64,
+    sink: Option<Sink>,
+    stream: Option<OutputStream>,
 }
 
-impl RunnerThread {
+impl PerFrameRunnerThread {
     pub(crate) fn new(
         config: RunnerConfig, 
         input_rx: kanal::Receiver<u8>, 
         update_display_tx: kanal::Sender<Vec<u8>>, 
         rotation_tx: kanal::Sender<LNXRotation>,
-        sample_req_rx: kanal::Receiver<()>, 
-        sample_rec_tx: kanal::Sender<(i16, i16)>,
     ) -> Self {
         Self {
             lynx: Lynx::new(),
-            next_ticks_trigger: Instant::now(),
             config,
             input_rx,
             update_display_tx,
             rotation_tx,
-            sample_rec_tx,
-            sample_req_rx,
             sound_tick: 0,
-            sound_sample: VecDeque::new(),
-            sample_ticks: SAMPLE_TICKS,
+            sound_sample: vec![],
+            frame_time: Duration::from_millis(16),
+            last_refresh_rate: 0f64,
+            next_lcd_refresh: Instant::now(),
+            sink: None,
+            stream: None,
         }
     }
 
@@ -54,22 +50,18 @@ impl RunnerThread {
         }
 
         self.sound_tick += 1;
-        if self.sound_tick < self.sample_ticks {
-            return;
-        }
 
-        if self.sound_sample.len() > 1100 {            
-            self.sample_ticks += 2;
+        if self.sound_tick != TICKS_PER_AUDIO_SAMPLE {
+            return;
         }
 
         self.sound_tick = 0;
-        self.sound_sample.push_back(self.lynx.audio_sample());
+        let (l, r) = self.lynx.audio_sample();
+        self.sound_sample.push(l);
+        self.sound_sample.push(r);        
     }
 
     fn display(&mut self) {
-        if !self.lynx.redraw_requested() {
-            return;
-        }
         trace!("Display updated.");
         let screen = self.lynx.screen_rgb().clone();
         let _ = self.update_display_tx.try_send(screen).is_ok();
@@ -82,9 +74,11 @@ impl RunnerThread {
             self.lynx.set_joystick_u8(joy);
         }
         false
-    }
+    }   
+}
 
-    pub(crate) fn initialize(&mut self) {
+impl RunnerThread for PerFrameRunnerThread {
+    fn initialize(&mut self) {
         if let Some(rom) = self.config.rom() {
             if self.lynx.load_rom_from_slice(&std::fs::read(rom).unwrap()).is_err() {
                 panic!("Couldn't not load ROM file.");
@@ -103,28 +97,41 @@ impl RunnerThread {
         self.rotation_tx.send(self.lynx.rotation()).unwrap();
     }
 
-    pub(crate) fn run(&mut self) {
+    fn run(&mut self) {
+
+        let mut rf: f64;
+
+        if !self.config.mute() {
+            let (stream, stream_handle) = OutputStream::try_default().unwrap();
+            self.stream = Some(stream);
+            self.sink = Some(Sink::try_new(&stream_handle).unwrap());
+        }
+
         loop {
-            while Instant::now() < self.next_ticks_trigger {
-                if let Ok(Some(())) = self.sample_req_rx.try_recv() {
-                    self.sample_rec_tx.send(match self.sound_sample.pop_front() {
-                        None => {
-                            self.sample_ticks -= 2;
-                            (0, 0)
-                        }
-                        Some(v) => v
-                    }).unwrap();
-                }
-            }
-            self.next_ticks_trigger = Instant::now() + TICK_LENGTH;
             if self.inputs() {
                 return;
             }
-            for _ in 0..TICK_GROUP {
+
+            while !self.lynx.redraw_requested() {
                 self.lynx.tick();
                 self.sound();
             }
+
+            if !self.sound_sample.is_empty() {
+               self.sink.as_mut().unwrap().append(SamplesBuffer::new(2,SAMPLE_RATE, self.sound_sample.clone()));
+               self.sound_sample.clear();
+            }
+
+            rf = self.lynx.display_refresh_rate();
+            if rf != self.last_refresh_rate {                
+                self.last_refresh_rate = rf;
+                self.frame_time = Duration::from_micros((1000000f64 / self.last_refresh_rate) as u64);
+                trace!("set refresh rate to {} ({:?})", rf, self.frame_time);
+            } 
             self.display();
+
+            while self.next_lcd_refresh > Instant::now() {}
+            self.next_lcd_refresh = Instant::now() + self.frame_time;
         }
     }
 }

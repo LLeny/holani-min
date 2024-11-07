@@ -31,6 +31,7 @@ Options:
   -b, --buttons <BUTTONS>      Buttons mapping <up><down><left><right><out><in><o1><o2> [default: ikjlqw12]
   -l, --linear                 Linear display filter
   -m, --mute                   Mute sound
+  -x, --comlynx                Enable Comlynx
   -h, --help                   Print help
   -V, --version                Print version
 ```

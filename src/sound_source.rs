@@ -1,7 +1,8 @@
 use rodio::Source;
 
+use crate::runner::SAMPLE_RATE;
+
 const CHANNELS: u16 = 2;
-const SAMPLE_RATE: u32 = 11_025;
 
 pub(crate) struct SoundSource {
     sample: Vec<i16>,
