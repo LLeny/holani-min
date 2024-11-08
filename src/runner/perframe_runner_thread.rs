@@ -11,7 +11,7 @@ pub(crate) struct PerFrameRunnerThread {
     sound_tick: u64,
     sound_sample: Vec<i16>,
     config: RunnerConfig,
-    input_rx: kanal::Receiver<u8>,
+    input_rx: kanal::Receiver<(u8, u8)>,
     update_display_tx: kanal::Sender<Vec<u8>>,
     rotation_tx: kanal::Sender<LNXRotation>,
     frame_time: Duration,
@@ -24,7 +24,7 @@ pub(crate) struct PerFrameRunnerThread {
 impl PerFrameRunnerThread {
     pub(crate) fn new(
         config: RunnerConfig, 
-        input_rx: kanal::Receiver<u8>, 
+        input_rx: kanal::Receiver<(u8, u8)>, 
         update_display_tx: kanal::Sender<Vec<u8>>, 
         rotation_tx: kanal::Sender<LNXRotation>,
     ) -> Self {
@@ -70,8 +70,9 @@ impl PerFrameRunnerThread {
     fn inputs(&mut self) -> bool {
         if self.input_rx.is_disconnected() {
             return true;
-        } else if let Ok(Some(joy)) = self.input_rx.try_recv() {
+        } else if let Ok(Some((joy, sw))) = self.input_rx.try_recv() {
             self.lynx.set_joystick_u8(joy);
+            self.lynx.set_switches_u8(sw);
         }
         false
     }   

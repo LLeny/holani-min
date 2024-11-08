@@ -1,13 +1,25 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use holani::suzy::registers::Joystick;
 use macroquad::input::KeyCode;
+
+#[derive(Clone)]
+pub(crate) enum Input {
+    Up,
+    Down,
+    Left,
+    Right,
+    Outside,
+    Inside,
+    Option1,
+    Option2,
+    Pause,
+}
 
 #[derive(Clone)]
 pub(crate) struct RunnerConfig {
     rom: Option<PathBuf>,
     cartridge: Option<PathBuf>,
-    button_mapping: HashMap<KeyCode, Joystick>,
+    button_mapping: HashMap<KeyCode, Input>,
     linear_filter: bool,
     mute: bool,
     comlynx: bool,
@@ -41,11 +53,11 @@ impl RunnerConfig {
         self.cartridge = Some(cartridge);
     }
 
-    pub(crate) fn button_mapping(&self) -> &HashMap<KeyCode, Joystick> {
+    pub(crate) fn button_mapping(&self) -> &HashMap<KeyCode, Input> {
         &self.button_mapping
     }
 
-    pub(crate) fn set_button_mapping(&mut self, key: KeyCode, btn: Joystick) {
+    pub(crate) fn set_button_mapping(&mut self, key: KeyCode, btn: Input) {
         if let Some(x) = self.button_mapping.get_mut(&key) {
             *x = btn;
         } else {

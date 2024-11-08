@@ -17,7 +17,7 @@ pub(crate) struct ComlynxRunnerThread {
     sound_sample: VecDeque<(i16, i16)>,
     sample_ticks: u32,
     config: RunnerConfig,
-    input_rx: kanal::Receiver<u8>,
+    input_rx: kanal::Receiver<(u8, u8)>,
     update_display_tx: kanal::Sender<Vec<u8>>,
     rotation_tx: kanal::Sender<LNXRotation>,
     sink: Option<Sink>,
@@ -27,7 +27,7 @@ pub(crate) struct ComlynxRunnerThread {
 impl ComlynxRunnerThread {
     pub(crate) fn new(
         config: RunnerConfig, 
-        input_rx: kanal::Receiver<u8>, 
+        input_rx: kanal::Receiver<(u8, u8)>, 
         update_display_tx: kanal::Sender<Vec<u8>>, 
         rotation_tx: kanal::Sender<LNXRotation>,
     ) -> Self {
@@ -72,8 +72,9 @@ impl ComlynxRunnerThread {
     fn inputs(&mut self) -> bool {
         if self.input_rx.is_disconnected() {
             return true;
-        } else if let Ok(Some(joy)) = self.input_rx.try_recv() {
+        } else if let Ok(Some((joy, sw))) = self.input_rx.try_recv() {
             self.lynx.set_joystick_u8(joy);
+            self.lynx.set_switches_u8(sw);
         }
         false
     }   

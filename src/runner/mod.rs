@@ -46,8 +46,8 @@ impl Runner {
         }
     }
 
-    pub fn initialize_thread(&mut self) -> (kanal::Sender<u8>, kanal::Receiver<Vec<u8>>, LNXRotation) {
-        let (input_tx, input_rx) = kanal::unbounded::<u8>();
+    pub fn initialize_thread(&mut self) -> (kanal::Sender<(u8, u8)>, kanal::Receiver<Vec<u8>>, LNXRotation) {
+        let (input_tx, input_rx) = kanal::unbounded::<(u8, u8)>();
         let (update_display_tx, update_display_rx) = kanal::unbounded::<Vec<u8>>();
         let (rotation_tx, rotation_rx) = kanal::unbounded::<LNXRotation>();
 
