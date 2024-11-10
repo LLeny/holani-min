@@ -79,23 +79,36 @@ impl PerFrameRunnerThread {
 }
 
 impl RunnerThread for PerFrameRunnerThread {
-    fn initialize(&mut self) {
+    fn initialize(&mut self) -> Result<(), &str> {
         if let Some(rom) = self.config.rom() {
-            if self.lynx.load_rom_from_slice(&std::fs::read(rom).unwrap()).is_err() {
-                panic!("Couldn't not load ROM file.");
+            let data = std::fs::read(rom);            
+            if data.is_err() {
+                return Err("Couldn't not load ROM file.");
+            }
+            if self.lynx.load_rom_from_slice(&data.unwrap()).is_err() {
+                return Err("Couldn't not load ROM file.");
             }
             trace!("ROM loaded.");
         }
 
         match self.config.cartridge() {
             None => panic!("A cartridge is required."),
-            Some(cart) => if self.lynx.load_cart_from_slice(&std::fs::read(cart).unwrap()).is_err() {
-                panic!("Couldn't not load Cartridge file.");
-            }
+            Some(cart) => {
+                let data = std::fs::read(cart);            
+                if data.is_err() {
+                    return Err("Couldn't not load Cartridge file.");
+                }
+                if self.lynx.load_cart_from_slice(&data.unwrap()).is_err() {
+                    return Err("Couldn't not load Cartridge file.");
+                }
+                trace!("ROM loaded.");
+            } 
         }
 
         trace!("Cart loaded.");
         self.rotation_tx.send(self.lynx.rotation()).unwrap();
+
+        Ok(())
     }
 
     fn run(&mut self) {

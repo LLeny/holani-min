@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, time::{Duration, Instant}};
 use holani::{cartridge::lnx_header::LNXRotation, Lynx};
 use log::trace;
-use rodio::{OutputStream, Sink};
+use rodio::{OutputStream, Sink, Source};
 
 use crate::sound_source::SoundSource;
 
@@ -81,23 +81,36 @@ impl ComlynxRunnerThread {
 }
 
 impl RunnerThread for ComlynxRunnerThread {
-    fn initialize(&mut self) {
+    fn initialize(&mut self) -> Result<(), &str> {
         if let Some(rom) = self.config.rom() {
-            if self.lynx.load_rom_from_slice(&std::fs::read(rom).unwrap()).is_err() {
-                panic!("Couldn't not load ROM file.");
+            let data = std::fs::read(rom);            
+            if data.is_err() {
+                return Err("Couldn't not load ROM file.");
+            }
+            if self.lynx.load_rom_from_slice(&data.unwrap()).is_err() {
+                return Err("Couldn't not load ROM file.");
             }
             trace!("ROM loaded.");
         }
 
         match self.config.cartridge() {
             None => panic!("A cartridge is required."),
-            Some(cart) => if self.lynx.load_cart_from_slice(&std::fs::read(cart).unwrap()).is_err() {
-                panic!("Couldn't not load Cartridge file.");
-            }
+            Some(cart) => {
+                let data = std::fs::read(cart);            
+                if data.is_err() {
+                    return Err("Couldn't not load Cartridge file.");
+                }
+                if self.lynx.load_cart_from_slice(&data.unwrap()).is_err() {
+                    return Err("Couldn't not load Cartridge file.");
+                }
+                trace!("ROM loaded.");
+            } 
         }
 
         trace!("Cart loaded.");
         self.rotation_tx.send(self.lynx.rotation()).unwrap();
+
+        Ok(())
     }
 
     fn run(&mut self) {
@@ -110,7 +123,7 @@ impl RunnerThread for ComlynxRunnerThread {
             self.stream = Some(stream);
             let sink = Sink::try_new(&stream_handle).unwrap();
             let sound_source = SoundSource::new(sample_req_tx, sample_rec_rx);
-            sink.append(sound_source);
+            sink.append(sound_source.low_pass(4000));
             self.sink = Some(sink);
         }
 
