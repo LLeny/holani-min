@@ -15,7 +15,7 @@ pub const SAMPLE_RATE: u32 = 16_000;
 pub const SAMPLE_TICKS: u32 = CRYSTAL_FREQUENCY / SAMPLE_RATE;
 
 pub(crate) trait RunnerThread {
-    fn initialize(&mut self);
+    fn initialize(&mut self) -> Result<(), &str>;
     fn run(&mut self);
 }
 
@@ -62,7 +62,10 @@ impl Runner {
                     false => Box::new(PerFrameRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx)),
                 };
                 trace!("Runner started.");
-                thread.initialize();
+                thread.initialize().unwrap_or_else(|err| {
+                    println!("Error: {}", err);
+                    std::process::exit(1);
+                });
                 thread.run();
             })
             .expect("Could not create the main core runner thread.")

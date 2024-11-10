@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, time::{Duration, Instant}};
 use holani::{cartridge::lnx_header::LNXRotation, Lynx};
 use log::trace;
-use rodio::{OutputStream, Sink, Source};
+use rodio::{OutputStream, Sink};
 
 use crate::sound_source::SoundSource;
 
@@ -123,7 +123,7 @@ impl RunnerThread for ComlynxRunnerThread {
             self.stream = Some(stream);
             let sink = Sink::try_new(&stream_handle).unwrap();
             let sound_source = SoundSource::new(sample_req_tx, sample_rec_rx);
-            sink.append(sound_source.low_pass(4000));
+            sink.append(sound_source);
             self.sink = Some(sink);
         }
 
