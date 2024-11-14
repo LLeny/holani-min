@@ -1,6 +1,6 @@
 # Holani-min
 
-A minimal frontend for the Atari Lynx emulator [Holani](https://github.com/LLeny/holani).
+A minimalistic frontend for the Atari Lynx emulator [Holani](https://github.com/LLeny/holani).
 
 ## Build
 
