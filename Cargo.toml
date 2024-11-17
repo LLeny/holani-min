@@ -1,10 +1,10 @@
 [package]
 name = "holani-min"
-version = "0.9.1"
+version = "0.9.2"
 edition = "2021"
 
 [dependencies]
-holani = { git = "https://github.com/LLeny/holani.git", tag = "0.9.1", features = [
+holani = { git = "https://github.com/LLeny/holani.git", tag = "0.9.2", features = [
   "comlynx_shared_memory"
 ] }
 macroquad = "0.4"
