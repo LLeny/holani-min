@@ -21,9 +21,9 @@ struct Args {
     #[arg(short, long)]
     rom: Option<PathBuf>,
 
-    /// Buttons mapping <up><down><left><right><out><in><o1><o2><pause>
-    #[arg(short, long, default_value = "ikjlqw12p")]
-    buttons: Option<String>,
+    /// Buttons mapping <up>,<down>,<left>,<right>,<out>,<in>,<o1>,<o2>,<pause>
+    #[arg(short, long, value_delimiter = ',', default_value = "up,down,left,right,q,w,1,2,p")]
+    buttons: Option<Vec<String>>,
 
     /// Linear display filter
     #[arg(short, long, default_value_t = false)]
@@ -133,12 +133,12 @@ fn process_args() -> RunnerConfig {
 
     let btns = args.buttons.unwrap();
     if btns.len() != 9 {
-        panic!("Buttons mapping should be 9 characters.");
+        panic!("Buttons mapping should be 9 keys.");
     }
-    for (c, btn) in btns.chars().zip([Input::Up, Input::Down, Input::Left, Input::Right, Input::Outside, Input::Inside, Input::Option1, Input::Option2, Input::Pause]) {
-        let key = translate_keycode(c);
+    for (s, btn) in btns.iter().zip([Input::Up, Input::Down, Input::Left, Input::Right, Input::Outside, Input::Inside, Input::Option1, Input::Option2, Input::Pause]) {
+        let key = translate_keycode(s);
         if key == KeyCode::Unknown {
-            panic!("Buttons mapping: Unknown key '{}'.", c);
+            panic!("Buttons mapping: Unknown key '{}'.", s.as_str());
         }
         config.set_button_mapping(key, btn);
     }
