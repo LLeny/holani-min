@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use holani::{cartridge::lnx_header::LNXRotation, Lynx};
+use holani::{cartridge::lnx_header::LNXRotation, lynx::Lynx};
 use log::trace;
 use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
 
