@@ -22,7 +22,7 @@ pub(crate) struct RunnerConfig {
     button_mapping: HashMap<KeyCode, Input>,
     linear_filter: bool,
     mute: bool,
-    comlynx: bool,
+    comlynx_port: u16,
 }
 
 impl RunnerConfig {
@@ -32,7 +32,7 @@ impl RunnerConfig {
             cartridge: None,
             linear_filter: false,
             mute: false,
-            comlynx: false,
+            comlynx_port: 0,
             button_mapping: HashMap::new()
         }
     }
@@ -81,11 +81,11 @@ impl RunnerConfig {
         self.mute = mute;
     }
     
-    pub(crate) fn comlynx(&self) -> bool {
-        self.comlynx
+    pub(crate) fn comlynx_port(&self) -> u16 {
+        self.comlynx_port
     }
     
-    pub(crate) fn set_comlynx(&mut self, comlynx: bool) {
-        self.comlynx = comlynx;
+    pub(crate) fn set_comlynx_port(&mut self, port: u16) {
+        self.comlynx_port = port;
     }
 }

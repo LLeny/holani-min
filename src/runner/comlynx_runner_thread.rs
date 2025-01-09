@@ -1,13 +1,12 @@
-use std::{collections::VecDeque, time::{Duration, Instant}};
+use std::{collections::VecDeque, io::{Read, Write}, time::{Duration, Instant}};
 use holani::{cartridge::lnx_header::LNXRotation, lynx::Lynx};
 use log::trace;
 use rodio::{OutputStream, Sink};
-
 use crate::sound_source::SoundSource;
 
 use super::{RunnerConfig, RunnerThread, CRYSTAL_FREQUENCY, SAMPLE_TICKS};
 
-const TICK_GROUP: u32 = 8;
+const TICK_GROUP: u32 = 16;
 const TICK_LENGTH: Duration = Duration::from_nanos((1_000_000_000f32 / CRYSTAL_FREQUENCY as f32 * TICK_GROUP as f32) as u64);
 
 pub(crate) struct ComlynxRunnerThread {
@@ -118,6 +117,16 @@ impl RunnerThread for ComlynxRunnerThread {
         let (sample_req_tx, sample_req_rx) = kanal::unbounded::<()>();
         let (sample_rec_tx, sample_rec_rx) = kanal::unbounded::<(i16, i16)>();
 
+        let bindto = format!("0.0.0.0:{}", self.config.comlynx_port());
+        let tcpsock = std::net::TcpListener::bind(bindto).unwrap();
+        println!("Comlynx TCP server running at 0.0.0.0:{}", self.config.comlynx_port());
+
+        let (mut stream, _) = tcpsock.accept().unwrap();
+        stream.set_nonblocking(true).unwrap();
+        println!("Comlynx client connected.");
+
+        let mut buffer = [0; 64];
+
         if !self.config.mute() {
             let (stream, stream_handle) = OutputStream::try_default().unwrap();
             self.stream = Some(stream);
@@ -142,6 +151,18 @@ impl RunnerThread for ComlynxRunnerThread {
             for _ in 0..TICK_GROUP {
                 self.lynx.tick();
                 self.sound();
+            }
+
+            if let Ok(len) = stream.read(&mut buffer) {
+                if len > 0 {
+                    // println!("Received {:02X}", buffer[0]);
+                    self.lynx.comlynx_ext_tx(buffer[0]);
+                }                
+            }
+
+            if let Some(rx) = self.lynx.comlynx_ext_rx() {
+                // println!("Sending {:02X}", rx);
+                let _ = stream.write_all(&[rx]);
             }
 
             self.display();

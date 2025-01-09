@@ -45,9 +45,9 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     mute: bool,
 
-    /// Enable Comlynx
-    #[arg(short('x'), long, default_value_t = false)]
-    comlynx: bool,
+    /// Comlynx tcp port
+    #[arg(short('x'), long)]
+    comlynx: u16,
 }
 
 #[macroquad::main("Holani")]
@@ -181,7 +181,7 @@ fn process_args() -> RunnerConfig {
 
     config.set_linear_filter(args.linear);
     config.set_mute(args.mute);
-    config.set_comlynx(args.comlynx);
+    config.set_comlynx_port(args.comlynx);
 
     let btns = args.buttons.unwrap();
     if btns.len() != 9 {
