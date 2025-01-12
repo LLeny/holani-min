@@ -156,13 +156,13 @@ impl RunnerThread for ComlynxRunnerThread {
             if let Ok(len) = stream.read(&mut buffer) {
                 if len > 0 {
                     // println!("Received {:02X}", buffer[0]);
-                    self.lynx.comlynx_ext_tx(buffer[0]);
+                    self.lynx.comlynx_ext_rx(buffer[0]);
                 }                
             }
 
-            if let Some(rx) = self.lynx.comlynx_ext_rx() {
+            if let Some(tx) = self.lynx.comlynx_ext_tx() {
                 // println!("Sending {:02X}", rx);
-                let _ = stream.write_all(&[rx]);
+                let _ = stream.write_all(&[tx]);
             }
 
             self.display();
