@@ -125,7 +125,7 @@ impl RunnerThread for ComlynxRunnerThread {
         stream.set_nonblocking(true).unwrap();
         println!("Comlynx client connected.");
 
-        let mut buffer = [0; 64];
+        let mut buffer = [0; 128];
 
         if !self.config.mute() {
             let (stream, stream_handle) = OutputStream::try_default().unwrap();
@@ -154,9 +154,9 @@ impl RunnerThread for ComlynxRunnerThread {
             }
 
             if let Ok(len) = stream.read(&mut buffer) {
-                if len > 0 {
-                    // println!("Received {:02X}", buffer[0]);
-                    self.lynx.comlynx_ext_rx(buffer[0]);
+                for data in buffer.iter().take(len) {
+                    // println!("Received {:02X}", data);
+                    self.lynx.comlynx_ext_rx(*data);
                 }                
             }
 

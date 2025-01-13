@@ -4,7 +4,7 @@ version = "0.9.6"
 edition = "2021"
 
 [dependencies]
-holani = { git = "https://github.com/LLeny/holani.git", branch = "test_comlynx_ext", features = [
+holani = { git = "https://github.com/LLeny/holani.git", rev = "06e6887eb5216d536938ff7cc6d43071134f0b31", features = [
   "comlynx_external",
 ] }
 macroquad = "0.4"
