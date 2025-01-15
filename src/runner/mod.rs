@@ -2,6 +2,7 @@ use std::thread::JoinHandle;
 use comlynx_runner_thread::ComlynxRunnerThread;
 use holani::cartridge::lnx_header::LNXRotation;
 use log::trace;
+#[cfg(not(feature = "comlynx_external"))]
 use perframe_runner_thread::PerFrameRunnerThread;
 use runner_config::RunnerConfig;
 use thread_priority::*;
@@ -57,10 +58,14 @@ impl Runner {
             std::thread::Builder::new()
             .name("Core".to_string())
             .spawn_with_priority(ThreadPriority::Max, move |_| {
+                #[cfg(not(feature = "comlynx_external"))]
                 let mut thread: Box<dyn RunnerThread> = match conf.comlynx() {
                     true => Box::new(ComlynxRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx)),
                     false => Box::new(PerFrameRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx)),
                 };
+                #[cfg(feature = "comlynx_external")]
+                let mut thread: Box<dyn RunnerThread> = Box::new(ComlynxRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx));
+
                 trace!("Runner started.");
                 thread.initialize().unwrap_or_else(|err| {
                     println!("Error: {}", err);

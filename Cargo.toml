@@ -4,9 +4,7 @@ version = "0.9.6"
 edition = "2021"
 
 [dependencies]
-holani = { git = "https://github.com/LLeny/holani.git", tag = "0.9.6", features = [
-  "comlynx_shared_memory",
-] }
+holani = { git = "https://github.com/LLeny/holani.git", rev = "5d08d026746745446ae815a353fdaaae4ff815ec" }
 macroquad = "0.4"
 env_logger = { version = "0.11.5", default-features = false, features = [
   "auto-color",
@@ -20,3 +18,11 @@ kanal = { git = "https://github.com/fereidani/kanal.git", rev = "125fb7876797f20
 rodio = "0.20"
 clap = { version = "4.5", features = ["derive"] }
 thread-priority = "1.2.0"
+
+[features]
+default = ["holani/comlynx_shared_memory"]
+comlynx_external = ["holani/comlynx_external"]
+
+[profile.release]
+codegen-units = 1
+lto = "thin"

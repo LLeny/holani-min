@@ -1,10 +1,9 @@
-use std::{collections::VecDeque, time::{Duration, Instant}};
+use std::{collections::VecDeque, io::{Read, Write}, net::TcpStream, time::{Duration, Instant}};
 use holani::{cartridge::lnx_header::LNXRotation, lynx::Lynx};
 use log::trace;
 use rodio::{OutputStream, Sink};
-
+use thread_priority::{ThreadBuilderExt, ThreadPriority};
 use crate::sound_source::SoundSource;
-
 use super::{RunnerConfig, RunnerThread, CRYSTAL_FREQUENCY, SAMPLE_TICKS};
 
 const TICK_GROUP: u32 = 8;
@@ -110,6 +109,8 @@ impl RunnerThread for ComlynxRunnerThread {
         trace!("Cart loaded.");
         self.rotation_tx.send(self.lynx.rotation()).unwrap();
 
+        self.lynx.set_comlynx_cable_present(true);
+
         Ok(())
     }
 
@@ -117,6 +118,37 @@ impl RunnerThread for ComlynxRunnerThread {
 
         let (sample_req_tx, sample_req_rx) = kanal::unbounded::<()>();
         let (sample_rec_tx, sample_rec_rx) = kanal::unbounded::<(i16, i16)>();
+
+        #[cfg(feature = "comlynx_external")]
+        let (tcp_conn_tx, tcp_conn_rx) = kanal::unbounded::<TcpStream>();
+        #[cfg(feature = "comlynx_external")]
+        let port = self.config.comlynx_port();
+        #[cfg(feature = "comlynx_external")]
+        let _tcplistener =
+            std::thread::Builder::new()
+            .name("TCPListener".to_string())
+            .spawn_with_priority(ThreadPriority::Min, move |_| {
+                let bindto = format!("0.0.0.0:{}", port);
+                let tcpsock = std::net::TcpListener::bind(bindto).unwrap();
+                println!("Comlynx TCP server running at 0.0.0.0:{}", port);
+
+                for stream in tcpsock.incoming() {
+                    match stream {
+                        Ok(stream) => {
+                            stream.set_nonblocking(true).unwrap();
+                            tcp_conn_tx.send(stream).unwrap();
+                            println!("Comlynx client connected.");
+                        }
+                        Err(e) => eprintln!("{}", e)
+                    }
+                }
+            })
+            .expect("Could not create the TCP listener thread.");
+
+        #[cfg(feature = "comlynx_external")]
+        let mut buffer = [0; 128];
+        #[cfg(feature = "comlynx_external")]
+        let mut stream: Option<TcpStream> = None;
 
         if !self.config.mute() {
             let (stream, stream_handle) = OutputStream::try_default().unwrap();
@@ -142,6 +174,23 @@ impl RunnerThread for ComlynxRunnerThread {
             for _ in 0..TICK_GROUP {
                 self.lynx.tick();
                 self.sound();
+            }
+
+            #[cfg(feature = "comlynx_external")]
+            {
+                if let Ok(Some(s)) = tcp_conn_rx.try_recv() {
+                    stream = Some(s);
+                }
+
+                if let Some(Ok(len)) = stream.as_ref().map(|mut s| s.read(&mut buffer)) {
+                    for data in buffer.iter().take(len) {
+                        self.lynx.comlynx_ext_rx(*data);
+                    }                
+                }
+
+                if let Some(tx) = self.lynx.comlynx_ext_tx() {
+                    let _ = stream.as_ref().map(|mut s| s.write_all(&[tx]));
+                }
             }
 
             self.display();

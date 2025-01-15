@@ -22,7 +22,10 @@ pub(crate) struct RunnerConfig {
     button_mapping: HashMap<KeyCode, Input>,
     linear_filter: bool,
     mute: bool,
+    #[cfg(not(feature = "comlynx_external"))]
     comlynx: bool,
+    #[cfg(feature = "comlynx_external")]
+    comlynx_port: u16,
 }
 
 impl RunnerConfig {
@@ -32,7 +35,10 @@ impl RunnerConfig {
             cartridge: None,
             linear_filter: false,
             mute: false,
+            #[cfg(not(feature = "comlynx_external"))]
             comlynx: false,
+            #[cfg(feature = "comlynx_external")]
+            comlynx_port: 0,
             button_mapping: HashMap::new()
         }
     }
@@ -81,11 +87,23 @@ impl RunnerConfig {
         self.mute = mute;
     }
     
+    #[cfg(not(feature = "comlynx_external"))]
     pub(crate) fn comlynx(&self) -> bool {
         self.comlynx
     }
-    
+        
+    #[cfg(not(feature = "comlynx_external"))]
     pub(crate) fn set_comlynx(&mut self, comlynx: bool) {
         self.comlynx = comlynx;
+    }
+
+    #[cfg(feature = "comlynx_external")]
+    pub(crate) fn comlynx_port(&self) -> u16 {
+        self.comlynx_port
+    }
+    
+    #[cfg(feature = "comlynx_external")]
+    pub(crate) fn set_comlynx_port(&mut self, port: u16) {
+        self.comlynx_port = port;
     }
 }
