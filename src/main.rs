@@ -45,7 +45,13 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     mute: bool,
 
+    /// Enable Comlynx
+    #[cfg(not(feature = "comlynx_external"))]
+    #[arg(short('x'), long, default_value_t = false)]
+    comlynx: bool,
+    
     /// Comlynx tcp port
+    #[cfg(feature = "comlynx_external")]
     #[arg(short('x'), long)]
     comlynx: u16,
 }
@@ -181,6 +187,9 @@ fn process_args() -> RunnerConfig {
 
     config.set_linear_filter(args.linear);
     config.set_mute(args.mute);
+    #[cfg(not(feature = "comlynx_external"))]
+    config.set_comlynx(args.comlynx);
+    #[cfg(feature = "comlynx_external")]
     config.set_comlynx_port(args.comlynx);
 
     let btns = args.buttons.unwrap();
