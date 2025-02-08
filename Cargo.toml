@@ -4,7 +4,7 @@ version = "0.9.6"
 edition = "2021"
 
 [dependencies]
-holani = { git = "https://github.com/LLeny/holani.git", rev = "5d08d026746745446ae815a353fdaaae4ff815ec" }
+holani = { git = "https://github.com/LLeny/holani.git", rev = "fd8126d5cfcab70c5abb9d6b08ed83d2b8b642b2" }
 macroquad = "0.4"
 env_logger = { version = "0.11.5", default-features = false, features = [
   "auto-color",
