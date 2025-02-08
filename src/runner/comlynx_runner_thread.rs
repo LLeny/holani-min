@@ -109,8 +109,6 @@ impl RunnerThread for ComlynxRunnerThread {
         trace!("Cart loaded.");
         self.rotation_tx.send(self.lynx.rotation()).unwrap();
 
-        self.lynx.set_comlynx_cable_present(true);
-
         Ok(())
     }
 
