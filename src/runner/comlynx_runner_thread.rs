@@ -137,7 +137,6 @@ impl RunnerThread for ComlynxRunnerThread {
                         Ok(stream) => {
                             stream.set_nonblocking(true).unwrap();
                             tcp_conn_tx.send(stream).unwrap();
-                            println!("Comlynx client connected.");
                         }
                         Err(e) => eprintln!("{}", e)
                     }
@@ -180,12 +179,23 @@ impl RunnerThread for ComlynxRunnerThread {
             {
                 if let Ok(Some(s)) = tcp_conn_rx.try_recv() {
                     stream = Some(s);
+                    self.lynx.set_comlynx_cable_present(true);
+                    println!("Comlynx client connected.");
                 }
 
-                if let Some(Ok(len)) = stream.as_ref().map(|mut s| s.read(&mut buffer)) {
-                    for data in buffer.iter().take(len) {
-                        self.lynx.comlynx_ext_rx(*data);
-                    }                
+                match stream.as_ref().map(|mut s| s.read(&mut buffer)) {
+                    Some(Err(_)) => (),
+                    Some(Ok(0)) => {
+                        let _ = stream.take();
+                        self.lynx.set_comlynx_cable_present(false);                        
+                        println!("Comlynx client disconnected.");
+                    }
+                    Some(Ok(len)) => {
+                        for data in buffer.iter().take(len) {
+                            self.lynx.comlynx_ext_rx(*data);
+                        } 
+                    }
+                    None => (),
                 }
 
                 if let Some(tx) = self.lynx.comlynx_ext_tx() {

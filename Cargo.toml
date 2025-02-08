@@ -25,4 +25,4 @@ comlynx_external = ["holani/comlynx_external"]
 
 [profile.release]
 codegen-units = 1
-lto = "thin"
+lto = "fat"
