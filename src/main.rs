@@ -49,7 +49,7 @@ struct Args {
     #[cfg(not(feature = "comlynx_external"))]
     #[arg(short('x'), long, default_value_t = false)]
     comlynx: bool,
-    
+
     /// Comlynx tcp port
     #[cfg(feature = "comlynx_external")]
     #[arg(short('x'), long)]
@@ -67,7 +67,7 @@ async fn main() {
     let mut joystick: Joystick = Joystick::empty();
     let mut switches: Switches = Switches::empty();
 
-    let mut rgba_buffer: Vec<u8> = vec![255; (LYNX_SCREEN_WIDTH * LYNX_SCREEN_HEIGHT * 4) as usize];
+    let rgba_buffer: Vec<u8> = vec![255; (LYNX_SCREEN_WIDTH * LYNX_SCREEN_HEIGHT * 4) as usize];
     let display = Texture2D::from_rgba8(
         LYNX_SCREEN_WIDTH as u16,
         LYNX_SCREEN_HEIGHT as u16,
@@ -152,15 +152,8 @@ async fn main() {
             render_target_camera.render_target = Some(render_target(target_width, target_height));
         }
 
-        if let Ok(Some(rgb)) = update_display_rx.try_recv() {
-            for (dst, src) in rgba_buffer.chunks_exact_mut(4).zip(rgb.chunks_exact(3)) {
-                dst[0..3].copy_from_slice(src);
-            }
-            display.update_from_bytes(
-                LYNX_SCREEN_WIDTH,
-                LYNX_SCREEN_HEIGHT,
-                rgba_buffer.as_slice(),
-            );
+        if let Ok(Some(rgba)) = update_display_rx.try_recv() {
+            display.update_from_bytes(LYNX_SCREEN_WIDTH, LYNX_SCREEN_HEIGHT, rgba.as_slice());
         }
         set_camera(&render_target_camera);
         draw_texture(&display, 0., 0., WHITE);
@@ -216,4 +209,3 @@ fn process_args() -> RunnerConfig {
 
     config
 }
-

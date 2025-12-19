@@ -1,20 +1,22 @@
-use std::{collections::VecDeque, io::{Read, Write}, net::TcpStream, time::{Duration, Instant}};
+use super::{RunnerConfig, RunnerThread, CRYSTAL_FREQUENCY, SAMPLE_TICKS};
+use crate::{runner::SAMPLE_RATE, sound_source::SoundSource};
 use holani::{cartridge::lnx_header::LNXRotation, lynx::Lynx};
 use log::trace;
+use ringbuf::{
+    traits::{Producer, Split as _},
+    HeapProd, HeapRb,
+};
 use rodio::{OutputStream, Sink};
-use thread_priority::{ThreadBuilderExt, ThreadPriority};
-use crate::sound_source::SoundSource;
-use super::{RunnerConfig, RunnerThread, CRYSTAL_FREQUENCY, SAMPLE_TICKS};
+use std::time::{Duration, Instant};
 
 const TICK_GROUP: u32 = 8;
-const TICK_LENGTH: Duration = Duration::from_nanos((1_000_000_000f32 / CRYSTAL_FREQUENCY as f32 * TICK_GROUP as f32) as u64);
+const TICK_LENGTH: Duration =
+    Duration::from_nanos((1_000_000_000f32 / CRYSTAL_FREQUENCY as f32 * TICK_GROUP as f32) as u64);
 
 pub(crate) struct ComlynxRunnerThread {
     lynx: Lynx,
     next_ticks_trigger: Instant,
     sound_tick: u32,
-    sound_sample: VecDeque<(i16, i16)>,
-    sample_ticks: u32,
     config: RunnerConfig,
     input_rx: kanal::Receiver<(u8, u8)>,
     update_display_tx: kanal::Sender<Vec<u8>>,
@@ -25,9 +27,9 @@ pub(crate) struct ComlynxRunnerThread {
 
 impl ComlynxRunnerThread {
     pub(crate) fn new(
-        config: RunnerConfig, 
-        input_rx: kanal::Receiver<(u8, u8)>, 
-        update_display_tx: kanal::Sender<Vec<u8>>, 
+        config: RunnerConfig,
+        input_rx: kanal::Receiver<(u8, u8)>,
+        update_display_tx: kanal::Sender<Vec<u8>>,
         rotation_tx: kanal::Sender<LNXRotation>,
     ) -> Self {
         Self {
@@ -38,25 +40,24 @@ impl ComlynxRunnerThread {
             update_display_tx,
             rotation_tx,
             sound_tick: 0,
-            sound_sample: VecDeque::new(),
-            sample_ticks: SAMPLE_TICKS,
             sink: None,
-            stream: None,            
+            stream: None,
         }
     }
 
-    fn sound(&mut self) {
+    fn sound(&mut self, prod: &mut HeapProd<i16>) {
         if self.config.mute() {
             return;
         }
 
         self.sound_tick += 1;
-        if self.sound_tick < self.sample_ticks {
+        if self.sound_tick < SAMPLE_TICKS {
             return;
         }
 
         self.sound_tick = 0;
-        self.sound_sample.push_back(self.lynx.audio_sample());
+        let (l, r) = self.lynx.audio_sample();
+        prod.push_slice(&[l, r]);
     }
 
     fn display(&mut self) {
@@ -64,8 +65,8 @@ impl ComlynxRunnerThread {
             return;
         }
         trace!("Display updated.");
-        let screen = self.lynx.screen_rgb().clone();
-        let _ = self.update_display_tx.try_send(screen).is_ok();
+        let screen = self.lynx.screen_rgba().clone();
+        let _ = self.update_display_tx.try_send(screen);
     }
 
     fn inputs(&mut self) -> bool {
@@ -76,13 +77,13 @@ impl ComlynxRunnerThread {
             self.lynx.set_switches_u8(sw);
         }
         false
-    }   
+    }
 }
 
 impl RunnerThread for ComlynxRunnerThread {
     fn initialize(&mut self) -> Result<(), &str> {
         if let Some(rom) = self.config.rom() {
-            let data = std::fs::read(rom);            
+            let data = std::fs::read(rom);
             if data.is_err() {
                 return Err("Couldn't not load ROM file.");
             }
@@ -95,7 +96,7 @@ impl RunnerThread for ComlynxRunnerThread {
         match self.config.cartridge() {
             None => panic!("A cartridge is required."),
             Some(cart) => {
-                let data = std::fs::read(cart);            
+                let data = std::fs::read(cart);
                 if data.is_err() {
                     return Err("Couldn't not load Cartridge file.");
                 }
@@ -103,7 +104,7 @@ impl RunnerThread for ComlynxRunnerThread {
                     return Err("Couldn't not load Cartridge file.");
                 }
                 trace!("ROM loaded.");
-            } 
+            }
         }
 
         trace!("Cart loaded.");
@@ -113,17 +114,15 @@ impl RunnerThread for ComlynxRunnerThread {
     }
 
     fn run(&mut self) {
-
-        let (sample_req_tx, sample_req_rx) = kanal::unbounded::<()>();
-        let (sample_rec_tx, sample_rec_rx) = kanal::unbounded::<(i16, i16)>();
+        let sound_ringbuf = HeapRb::<i16>::new(SAMPLE_RATE as usize * 2); // 1 second buffer
+        let (mut sound_buffer, sound_consumer) = sound_ringbuf.split();
 
         #[cfg(feature = "comlynx_external")]
         let (tcp_conn_tx, tcp_conn_rx) = kanal::unbounded::<TcpStream>();
         #[cfg(feature = "comlynx_external")]
         let port = self.config.comlynx_port();
         #[cfg(feature = "comlynx_external")]
-        let _tcplistener =
-            std::thread::Builder::new()
+        let _tcplistener = std::thread::Builder::new()
             .name("TCPListener".to_string())
             .spawn_with_priority(ThreadPriority::Min, move |_| {
                 let bindto = format!("0.0.0.0:{}", port);
@@ -136,7 +135,7 @@ impl RunnerThread for ComlynxRunnerThread {
                             stream.set_nonblocking(true).unwrap();
                             tcp_conn_tx.send(stream).unwrap();
                         }
-                        Err(e) => eprintln!("{}", e)
+                        Err(e) => eprintln!("{}", e),
                     }
                 }
             })
@@ -148,20 +147,18 @@ impl RunnerThread for ComlynxRunnerThread {
         let mut stream: Option<TcpStream> = None;
 
         if !self.config.mute() {
-            let (stream, stream_handle) = OutputStream::try_default().unwrap();
-            self.stream = Some(stream);
-            let sink = Sink::try_new(&stream_handle).unwrap();
-            let sound_source = SoundSource::new(sample_req_tx, sample_rec_rx);
+            let stream_handle = rodio::OutputStreamBuilder::open_default_stream()
+                .expect("open default audio stream");
+            self.stream = Some(stream_handle);
+            let sink = rodio::Sink::connect_new(&self.stream.as_ref().unwrap().mixer());
+            let sound_source = SoundSource::new(sound_consumer);
             sink.append(sound_source);
             self.sink = Some(sink);
         }
 
         loop {
-            while Instant::now() < self.next_ticks_trigger {
-                if let Ok(Some(())) = sample_req_rx.try_recv() {
-                    sample_rec_tx.send(self.sound_sample.pop_front().unwrap_or((0, 0))).unwrap();
-                }
-            }
+            while Instant::now() < self.next_ticks_trigger {}
+
             self.next_ticks_trigger = Instant::now() + TICK_LENGTH;
 
             if self.inputs() {
@@ -170,7 +167,7 @@ impl RunnerThread for ComlynxRunnerThread {
 
             for _ in 0..TICK_GROUP {
                 self.lynx.tick();
-                self.sound();
+                self.sound(&mut sound_buffer);
             }
 
             #[cfg(feature = "comlynx_external")]
@@ -185,13 +182,13 @@ impl RunnerThread for ComlynxRunnerThread {
                     Some(Err(_)) => (),
                     Some(Ok(0)) => {
                         let _ = stream.take();
-                        self.lynx.set_comlynx_cable_present(false);                        
+                        self.lynx.set_comlynx_cable_present(false);
                         println!("Comlynx client disconnected.");
                     }
                     Some(Ok(len)) => {
                         for data in buffer.iter().take(len) {
                             self.lynx.comlynx_ext_rx(*data);
-                        } 
+                        }
                     }
                     None => (),
                 }

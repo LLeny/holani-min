@@ -1,45 +1,31 @@
+use ringbuf::{traits::Consumer, HeapCons};
 use rodio::Source;
 
 use crate::runner::SAMPLE_RATE;
-
 const CHANNELS: u16 = 2;
 
 pub(crate) struct SoundSource {
-    sample: Vec<i16>,
-    sample_req_tx: kanal::Sender<()>,
-    sample_rec_rx: kanal::Receiver<(i16, i16)>,
+    sample_buffer: HeapCons<i16>,
 }
 
 impl SoundSource {
-    pub(crate) fn new(sample_req_tx: kanal::Sender<()>, sample_rec_rx: kanal::Receiver<(i16, i16)>) -> Self {
-        Self { 
-            sample: vec![], 
-            sample_req_tx, 
-            sample_rec_rx 
-        }
+    pub(crate) fn new(sample_buffer: HeapCons<i16>) -> Self {
+        Self { sample_buffer }
     }
 }
 
 impl Iterator for SoundSource {
-    type Item = i16;
+    type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.sample.is_empty() {
-            self.sample_req_tx.send(()).unwrap();
-            if let Ok((l, r)) = self.sample_rec_rx.recv() {
-                self.sample.push(l);
-                self.sample.push(r);
-            }
-        }
-        self.sample.pop()
+        self.sample_buffer
+            .try_pop()
+            .map(|s| dasp_sample::conv::i16::to_f32(s))
+            .or(Some(0.))
     }
 }
 
 impl Source for SoundSource {
-    fn current_frame_len(&self) -> Option<usize> {
-        None
-    }
-
     fn channels(&self) -> u16 {
         CHANNELS
     }
@@ -49,6 +35,10 @@ impl Source for SoundSource {
     }
 
     fn total_duration(&self) -> Option<std::time::Duration> {
+        None
+    }
+
+    fn current_span_len(&self) -> Option<usize> {
         None
     }
 }
