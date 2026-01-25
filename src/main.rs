@@ -1,7 +1,7 @@
 use clap::Parser;
 use holani::{
     cartridge::lnx_header::LNXRotation,
-    mikey::video::{LYNX_SCREEN_HEIGHT, LYNX_SCREEN_WIDTH},
+    consts::{LYNX_SCREEN_HEIGHT, LYNX_SCREEN_WIDTH},
     suzy::registers::{Joystick, Switches},
 };
 use keycodes::translate_keycode;
@@ -113,7 +113,10 @@ async fn main() {
         zoom,
         rotation,
         offset: vec2(0., 0.),
-        render_target: Some(render_target(LYNX_SCREEN_WIDTH, LYNX_SCREEN_HEIGHT)),
+        render_target: Some(render_target(
+            LYNX_SCREEN_WIDTH as u32,
+            LYNX_SCREEN_HEIGHT as u32,
+        )),
         viewport: None,
     };
 
@@ -152,8 +155,19 @@ async fn main() {
             render_target_camera.render_target = Some(render_target(target_width, target_height));
         }
 
-        if let Ok(Some(rgba)) = update_display_rx.try_recv() {
-            display.update_from_bytes(LYNX_SCREEN_WIDTH, LYNX_SCREEN_HEIGHT, rgba.as_slice());
+        if let Ok(Some(argb)) = update_display_rx.try_recv() {
+            let mut rgba8 = Vec::with_capacity(argb.len() * 4);
+            for &px in argb.iter() {
+                let r = (px >> 16) as u8;
+                let g = (px >> 8) as u8;
+                let b = (px & 0xFF) as u8;
+                rgba8.extend([r, g, b, 255]);
+            }
+            display.update_from_bytes(
+                LYNX_SCREEN_WIDTH as u32,
+                LYNX_SCREEN_HEIGHT as u32,
+                &rgba8,
+            );
         }
         set_camera(&render_target_camera);
         draw_texture(&display, 0., 0., WHITE);

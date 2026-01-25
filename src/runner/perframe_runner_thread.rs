@@ -1,4 +1,8 @@
-use holani::{cartridge::lnx_header::LNXRotation, lynx::Lynx};
+use holani::{
+    cartridge::lnx_header::LNXRotation,
+    consts::{LYNX_SCREEN_HEIGHT, LYNX_SCREEN_WIDTH},
+    lynx::Lynx,
+};
 use log::trace;
 use ringbuf::{
     traits::{Producer, Split as _},
@@ -6,10 +10,9 @@ use ringbuf::{
 };
 use rodio::OutputStream;
 use std::time::{Duration, Instant};
-
 use crate::sound_source::SoundSource;
-
 use super::{RunnerConfig, RunnerThread, CRYSTAL_FREQUENCY, SAMPLE_RATE};
+
 const TICKS_PER_AUDIO_SAMPLE: u64 = CRYSTAL_FREQUENCY as u64 / SAMPLE_RATE as u64;
 const SAMPLE_BUFFER_SIZE: usize = 2048;
 
@@ -18,7 +21,7 @@ pub(crate) struct PerFrameRunnerThread {
     sound_tick: u64,
     config: RunnerConfig,
     input_rx: kanal::Receiver<(u8, u8)>,
-    update_display_tx: kanal::Sender<Vec<u8>>,
+    update_display_tx: kanal::Sender<[u32; LYNX_SCREEN_HEIGHT * LYNX_SCREEN_WIDTH]>,
     rotation_tx: kanal::Sender<LNXRotation>,
     frame_time: Duration,
     next_lcd_refresh: Instant,
@@ -30,7 +33,7 @@ impl PerFrameRunnerThread {
     pub(crate) fn new(
         config: RunnerConfig,
         input_rx: kanal::Receiver<(u8, u8)>,
-        update_display_tx: kanal::Sender<Vec<u8>>,
+        update_display_tx: kanal::Sender<[u32; LYNX_SCREEN_HEIGHT * LYNX_SCREEN_WIDTH]>,
         rotation_tx: kanal::Sender<LNXRotation>,
     ) -> Self {
         Self {
@@ -65,7 +68,7 @@ impl PerFrameRunnerThread {
 
     fn display(&mut self) {
         trace!("Display updated.");
-        let screen = self.lynx.screen_rgba().clone();
+        let screen = self.lynx.screen_argb().clone();
         let _ = self.update_display_tx.try_send(screen).is_ok();
     }
 

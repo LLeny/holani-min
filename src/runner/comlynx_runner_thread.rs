@@ -1,6 +1,10 @@
 use super::{RunnerConfig, RunnerThread, CRYSTAL_FREQUENCY, SAMPLE_TICKS};
 use crate::{runner::SAMPLE_RATE, sound_source::SoundSource};
-use holani::{cartridge::lnx_header::LNXRotation, lynx::Lynx};
+use holani::{
+    cartridge::lnx_header::LNXRotation,
+    consts::{LYNX_SCREEN_HEIGHT, LYNX_SCREEN_WIDTH},
+    lynx::Lynx,
+};
 use log::trace;
 use ringbuf::{
     traits::{Producer, Split as _},
@@ -19,7 +23,7 @@ pub(crate) struct ComlynxRunnerThread {
     sound_tick: u32,
     config: RunnerConfig,
     input_rx: kanal::Receiver<(u8, u8)>,
-    update_display_tx: kanal::Sender<Vec<u8>>,
+    update_display_tx: kanal::Sender<[u32; LYNX_SCREEN_HEIGHT * LYNX_SCREEN_WIDTH]>,
     rotation_tx: kanal::Sender<LNXRotation>,
     sink: Option<Sink>,
     stream: Option<OutputStream>,
@@ -29,7 +33,7 @@ impl ComlynxRunnerThread {
     pub(crate) fn new(
         config: RunnerConfig,
         input_rx: kanal::Receiver<(u8, u8)>,
-        update_display_tx: kanal::Sender<Vec<u8>>,
+        update_display_tx: kanal::Sender<[u32; LYNX_SCREEN_HEIGHT * LYNX_SCREEN_WIDTH]>,
         rotation_tx: kanal::Sender<LNXRotation>,
     ) -> Self {
         Self {
@@ -65,7 +69,7 @@ impl ComlynxRunnerThread {
             return;
         }
         trace!("Display updated.");
-        let screen = self.lynx.screen_rgba().clone();
+        let screen = self.lynx.screen_argb().clone();
         let _ = self.update_display_tx.try_send(screen);
     }
 

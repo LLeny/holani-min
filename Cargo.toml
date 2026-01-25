@@ -1,11 +1,11 @@
 [package]
 name = "holani-min"
-version = "0.9.8"
+version = "0.9.9"
 rust-version = "1.84"
 edition = "2021"
 
 [dependencies]
-holani = { git = "https://github.com/LLeny/holani.git", tag = "0.9.8" }
+holani = { git = "https://github.com/LLeny/holani.git", tag = "0.9.9" }
 macroquad = "0.4.14"
 env_logger = { version = "0.11.8", default-features = false, features = [
   "auto-color",

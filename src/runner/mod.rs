@@ -1,15 +1,18 @@
-use std::thread::JoinHandle;
 use comlynx_runner_thread::ComlynxRunnerThread;
-use holani::cartridge::lnx_header::LNXRotation;
+use holani::{
+    cartridge::lnx_header::LNXRotation,
+    consts::{LYNX_SCREEN_HEIGHT, LYNX_SCREEN_WIDTH},
+};
 use log::trace;
 #[cfg(not(feature = "comlynx_external"))]
 use perframe_runner_thread::PerFrameRunnerThread;
 use runner_config::RunnerConfig;
+use std::thread::JoinHandle;
 use thread_priority::*;
 
-pub(crate) mod runner_config;
 pub(crate) mod comlynx_runner_thread;
 pub(crate) mod perframe_runner_thread;
+pub(crate) mod runner_config;
 
 pub const CRYSTAL_FREQUENCY: u32 = 16_000_000;
 pub const SAMPLE_RATE: u32 = 16_000;
@@ -39,7 +42,6 @@ impl Drop for Runner {
 
 impl Runner {
     pub fn new(config: RunnerConfig) -> Self {
-
         Self {
             config,
             runner_thread: None,
@@ -47,37 +49,59 @@ impl Runner {
         }
     }
 
-    pub fn initialize_thread(&mut self) -> (kanal::Sender<(u8, u8)>, kanal::Receiver<Vec<u8>>, LNXRotation) {
+    pub fn initialize_thread(
+        &mut self,
+    ) -> (
+        kanal::Sender<(u8, u8)>,
+        kanal::Receiver<[u32; LYNX_SCREEN_HEIGHT * LYNX_SCREEN_WIDTH]>,
+        LNXRotation,
+    ) {
         let (input_tx, input_rx) = kanal::unbounded::<(u8, u8)>();
-        let (update_display_tx, update_display_rx) = kanal::unbounded::<Vec<u8>>();
+        let (update_display_tx, update_display_rx) =
+            kanal::unbounded::<[u32; LYNX_SCREEN_HEIGHT * LYNX_SCREEN_WIDTH]>();
         let (rotation_tx, rotation_rx) = kanal::unbounded::<LNXRotation>();
 
         let conf = self.config.clone();
 
         self.runner_thread = Some(
             std::thread::Builder::new()
-            .name("Core".to_string())
-            .spawn_with_priority(ThreadPriority::Max, move |_| {
-                #[cfg(not(feature = "comlynx_external"))]
-                let mut thread: Box<dyn RunnerThread> = match conf.comlynx() {
-                    true => Box::new(ComlynxRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx)),
-                    false => Box::new(PerFrameRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx)),
-                };
-                #[cfg(feature = "comlynx_external")]
-                let mut thread: Box<dyn RunnerThread> = Box::new(ComlynxRunnerThread::new(conf, input_rx, update_display_tx, rotation_tx));
+                .name("Core".to_string())
+                .spawn_with_priority(ThreadPriority::Max, move |_| {
+                    #[cfg(not(feature = "comlynx_external"))]
+                    let mut thread: Box<dyn RunnerThread> = match conf.comlynx() {
+                        true => Box::new(ComlynxRunnerThread::new(
+                            conf,
+                            input_rx,
+                            update_display_tx,
+                            rotation_tx,
+                        )),
+                        false => Box::new(PerFrameRunnerThread::new(
+                            conf,
+                            input_rx,
+                            update_display_tx,
+                            rotation_tx,
+                        )),
+                    };
+                    #[cfg(feature = "comlynx_external")]
+                    let mut thread: Box<dyn RunnerThread> = Box::new(ComlynxRunnerThread::new(
+                        conf,
+                        input_rx,
+                        update_display_tx,
+                        rotation_tx,
+                    ));
 
-                trace!("Runner started.");
-                thread.initialize().unwrap_or_else(|err| {
-                    println!("Error: {}", err);
-                    std::process::exit(1);
-                });
-                thread.run();
-            })
-            .expect("Could not create the main core runner thread.")
+                    trace!("Runner started.");
+                    thread.initialize().unwrap_or_else(|err| {
+                        println!("Error: {}", err);
+                        std::process::exit(1);
+                    });
+                    thread.run();
+                })
+                .expect("Could not create the main core runner thread."),
         );
 
         let rotation = rotation_rx.recv().unwrap();
-       
+
         (input_tx, update_display_rx, rotation)
     }
 }
