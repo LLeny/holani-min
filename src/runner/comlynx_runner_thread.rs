@@ -10,8 +10,14 @@ use ringbuf::{
     traits::{Producer, Split as _},
     HeapProd, HeapRb,
 };
-use rodio::{OutputStream, Sink};
+use rodio::MixerDeviceSink;
+use std::io::Read;
+use std::io::Write as _;
+#[cfg(feature = "comlynx_external")]
+use std::net::TcpStream;
 use std::time::{Duration, Instant};
+#[cfg(feature = "comlynx_external")]
+use thread_priority::{ThreadBuilderExt, ThreadPriority};
 
 const TICK_GROUP: u32 = 8;
 const TICK_LENGTH: Duration =
@@ -25,8 +31,7 @@ pub(crate) struct ComlynxRunnerThread {
     input_rx: kanal::Receiver<(u8, u8)>,
     update_display_tx: kanal::Sender<[u32; LYNX_SCREEN_HEIGHT * LYNX_SCREEN_WIDTH]>,
     rotation_tx: kanal::Sender<LNXRotation>,
-    sink: Option<Sink>,
-    stream: Option<OutputStream>,
+    stream: Option<MixerDeviceSink>,
 }
 
 impl ComlynxRunnerThread {
@@ -44,7 +49,6 @@ impl ComlynxRunnerThread {
             update_display_tx,
             rotation_tx,
             sound_tick: 0,
-            sink: None,
             stream: None,
         }
     }
@@ -118,7 +122,7 @@ impl RunnerThread for ComlynxRunnerThread {
     }
 
     fn run(&mut self) {
-        let sound_ringbuf = HeapRb::<i16>::new(SAMPLE_RATE as usize * 2); // 1 second buffer
+        let sound_ringbuf = HeapRb::<i16>::new(SAMPLE_RATE.get() as usize * 2); // 1 second buffer
         let (mut sound_buffer, sound_consumer) = sound_ringbuf.split();
 
         #[cfg(feature = "comlynx_external")]
@@ -151,13 +155,11 @@ impl RunnerThread for ComlynxRunnerThread {
         let mut stream: Option<TcpStream> = None;
 
         if !self.config.mute() {
-            let stream_handle = rodio::OutputStreamBuilder::open_default_stream()
-                .expect("open default audio stream");
-            self.stream = Some(stream_handle);
-            let sink = rodio::Sink::connect_new(&self.stream.as_ref().unwrap().mixer());
+            let sink_handle =
+                rodio::DeviceSinkBuilder::open_default_sink().expect("open default audio device");
             let sound_source = SoundSource::new(sound_consumer);
-            sink.append(sound_source);
-            self.sink = Some(sink);
+            sink_handle.mixer().add(sound_source);
+            self.stream = Some(sink_handle);
         }
 
         loop {

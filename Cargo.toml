@@ -1,12 +1,12 @@
 [package]
 name = "holani-min"
-version = "0.9.9"
+version = "1.0.0"
 rust-version = "1.84"
 edition = "2021"
 
 [dependencies]
-holani = { git = "https://github.com/LLeny/holani.git", tag = "0.9.9" }
-macroquad = "0.4.14"
+holani = { git = "https://github.com/LLeny/holani.git", tag = "1.0.0" }
+macroquad = "0.4.16"
 env_logger = { version = "0.11.8", default-features = false, features = [
   "auto-color",
   "humantime",
@@ -15,12 +15,14 @@ log = { version = "0.4.28", features = [
   "max_level_trace",
   "release_max_level_warn",
 ] }
-kanal = { git = "https://github.com/fereidani/kanal.git", rev = "9a4b98d570258410fa07c5329e3c4499533b1e92" }
-rodio = { version = "0.21.1", default-features = false, features = ["playback"] }
+kanal = { git = "https://github.com/fereidani/kanal.git", rev = "65723e13ad71222ee60b9379317b88db2aa4db27" }
+rodio = { version = "0.22.2", default-features = false, features = [
+  "playback",
+] }
 dasp_sample = "0.11.0"
-ringbuf = "0.4.8"
-clap = { version = "4.5.53", features = ["derive"] }
-thread-priority = "3.0.0"
+ringbuf = "0.5.1"
+clap = { version = "4.6.6", features = ["derive"] }
+thread-priority = "3.1.1"
 
 [features]
 default = ["holani/comlynx_shared_memory"]

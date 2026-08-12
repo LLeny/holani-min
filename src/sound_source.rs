@@ -1,8 +1,10 @@
+use std::num::NonZero;
+
 use ringbuf::{traits::Consumer, HeapCons};
 use rodio::Source;
 
 use crate::runner::SAMPLE_RATE;
-const CHANNELS: u16 = 2;
+const CHANNELS: NonZero<u16> = NonZero::<u16>::new(2).unwrap();
 
 pub(crate) struct SoundSource {
     sample_buffer: HeapCons<i16>,
@@ -26,11 +28,11 @@ impl Iterator for SoundSource {
 }
 
 impl Source for SoundSource {
-    fn channels(&self) -> u16 {
+    fn channels(&self) -> NonZero<u16> {
         CHANNELS
     }
 
-    fn sample_rate(&self) -> u32 {
+    fn sample_rate(&self) -> NonZero<u32> {
         SAMPLE_RATE
     }
 

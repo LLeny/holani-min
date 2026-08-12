@@ -7,16 +7,16 @@ use log::trace;
 #[cfg(not(feature = "comlynx_external"))]
 use perframe_runner_thread::PerFrameRunnerThread;
 use runner_config::RunnerConfig;
-use std::thread::JoinHandle;
-use thread_priority::*;
+use std::{num::NonZero, thread::JoinHandle};
+use thread_priority::{ThreadBuilderExt, ThreadPriority};
 
 pub(crate) mod comlynx_runner_thread;
 pub(crate) mod perframe_runner_thread;
 pub(crate) mod runner_config;
 
 pub const CRYSTAL_FREQUENCY: u32 = 16_000_000;
-pub const SAMPLE_RATE: u32 = 16_000;
-pub const SAMPLE_TICKS: u32 = CRYSTAL_FREQUENCY / SAMPLE_RATE;
+pub const SAMPLE_RATE: NonZero<u32> = NonZero::<u32>::new(16_000).unwrap();
+pub const SAMPLE_TICKS: u32 = CRYSTAL_FREQUENCY / SAMPLE_RATE.get();
 
 pub(crate) trait RunnerThread {
     fn initialize(&mut self) -> Result<(), &str>;
