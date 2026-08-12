@@ -7,12 +7,12 @@ use holani::{
 };
 use log::trace;
 use ringbuf::{
-    traits::{Producer, Split as _},
+    traits::{Producer, Split},
     HeapProd, HeapRb,
 };
 use rodio::MixerDeviceSink;
-use std::io::Read;
-use std::io::Write as _;
+#[cfg(feature = "comlynx_external")]
+use std::io::{Read, Write};
 #[cfg(feature = "comlynx_external")]
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
